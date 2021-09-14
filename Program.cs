@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -93,23 +94,28 @@ namespace TakeHomeTestApp
 
                 Console.WriteLine("Updating builds status: \n");
 
-                foreach (Build build in activeBuilds)
+                for (int i = 0; i < activeBuilds.Count(); i++)
                 {
-                    Build updatedBuild = await GetBuildDetails(build.id);
+                    Build build = activeBuilds.ElementAt(i);
 
-                    if (updatedBuild.status == "completed")
+                    if (build.status == "completed")
                     {
-                        TimeSpan buildTime = DateTime.Parse(updatedBuild.finishTime) - DateTime.Parse(updatedBuild.startTime);
-                        string logsLink = await GetBuildLogsLink(updatedBuild.id);
-                        string statusMessage = $"{updatedBuild.sourceBranch} build {updatedBuild.result} in {(int) buildTime.TotalSeconds} seconds. Link to build logs: {logsLink}";
-
-                        Console.WriteLine(statusMessage);
+                        await PrintBuildCompletionInfo(build);
                     }
                     else
                     {
-                        buildingCompleted = false;
+                        build = await GetBuildDetails(build.id);
 
-                        Console.WriteLine($"{build.sourceBranch} build is in process.");
+                        if (build.status == "completed")
+                        {
+                            await PrintBuildCompletionInfo(build);
+                        }
+                        else
+                        {
+                            buildingCompleted = false;
+
+                            Console.WriteLine($"{build.sourceBranch} build is in process.");
+                        }
                     }
                 }
 
@@ -122,6 +128,15 @@ namespace TakeHomeTestApp
                     Thread.Sleep((int)new TimeSpan(0, 2, 0).TotalMilliseconds);
                 }
             }
+        }
+
+        private static async Task PrintBuildCompletionInfo(Build build)
+        {
+            TimeSpan buildTime = DateTime.Parse(build.finishTime) - DateTime.Parse(build.startTime);
+            string logsLink = await GetBuildLogsLink(build.id);
+            string statusMessage = $"{build.sourceBranch} build {build.result} in {(int)buildTime.TotalSeconds} seconds. Link to build logs: {logsLink}";
+
+            Console.WriteLine(statusMessage);
         }
     }
 }
