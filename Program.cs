@@ -86,6 +86,7 @@ namespace TakeHomeTestApp
 
         private static async Task MonitorBuilds(IEnumerable<Build> activeBuilds)
         {
+            Dictionary<int, string> buildIdMessageDict = new Dictionary<int, string>();
             bool buildingCompleted = false;
 
             while (!buildingCompleted)
@@ -98,9 +99,14 @@ namespace TakeHomeTestApp
                 {
                     Build build = activeBuilds.ElementAt(i);
 
+                    if (!buildIdMessageDict.ContainsKey(build.id))
+                    {
+                        buildIdMessageDict[build.id] = "";
+                    }
+
                     if (build.status == "completed")
                     {
-                        await PrintBuildCompletionInfo(build);
+                        await PrintBuildCompletionMessage(buildIdMessageDict, build);
                     }
                     else
                     {
@@ -108,7 +114,7 @@ namespace TakeHomeTestApp
 
                         if (build.status == "completed")
                         {
-                            await PrintBuildCompletionInfo(build);
+                            await PrintBuildCompletionMessage(buildIdMessageDict, build);
                         }
                         else
                         {
@@ -130,13 +136,26 @@ namespace TakeHomeTestApp
             }
         }
 
-        private static async Task PrintBuildCompletionInfo(Build build)
+        private static async Task<string> GetBuildCompletionMessage(Build build)
         {
             TimeSpan buildTime = DateTime.Parse(build.finishTime) - DateTime.Parse(build.startTime);
             string logsLink = await GetBuildLogsLink(build.id);
             string statusMessage = $"{build.sourceBranch} build {build.result} in {(int)buildTime.TotalSeconds} seconds. Link to build logs: {logsLink}";
 
-            Console.WriteLine(statusMessage);
+            return statusMessage;
+        }
+
+        private static async Task PrintBuildCompletionMessage(Dictionary<int, string> buildMessageDict, Build build)
+        {
+            string message = buildMessageDict[build.id];
+
+            if (message == "")
+            {
+                message = await GetBuildCompletionMessage(build);
+                buildMessageDict[build.id] = message;
+            }
+
+            Console.WriteLine(message);
         }
     }
 }
