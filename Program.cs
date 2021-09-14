@@ -39,43 +39,7 @@ namespace TakeHomeTestApp
                 activeBuilds.Add(build);
             }
 
-            bool buildingCompleted = false;
-
-            while (!buildingCompleted)
-            {
-                buildingCompleted = true;
-
-                Console.WriteLine("Updating builds status: \n");
-
-                foreach (Build build in activeBuilds)
-                {
-                    Build updatedBuild = await GetBuildDetails(build.id);
-
-                    if (updatedBuild.status == "completed")
-                    {
-                        TimeSpan buildTime = DateTime.Parse(updatedBuild.finishTime) - DateTime.Parse(updatedBuild.startTime);
-                        string logsLink = await GetBuildLogsLink(updatedBuild.id);
-                        string statusMessage = $"{updatedBuild.sourceBranch} build {updatedBuild.result} in {buildTime.TotalSeconds} seconds. Link to build logs: {logsLink}";
-
-                        Console.WriteLine(statusMessage);
-                    }
-                    else
-                    {
-                        buildingCompleted = false;
-
-                        Console.WriteLine($"{build.sourceBranch} build is in process.");
-                    }
-                }
-
-                if (!buildingCompleted)
-                {
-                    var nextUpdateTime = DateTime.Now.AddMinutes(2);
-
-                    Console.WriteLine($"\nNext update at: {nextUpdateTime.ToString("T")}\n");
-
-                    Thread.Sleep((int)new TimeSpan(0, 2, 0).TotalMilliseconds);
-                }
-            }
+            await MonitorBuilds(activeBuilds);
         }
 
         private static async Task<List<BranchData>> GetBranchesData()
@@ -117,6 +81,47 @@ namespace TakeHomeTestApp
             var logs = JsonConvert.DeserializeAnonymousType(response, logsModel);
 
             return logs.uri;
+        }
+
+        private static async Task MonitorBuilds(IEnumerable<Build> activeBuilds)
+        {
+            bool buildingCompleted = false;
+
+            while (!buildingCompleted)
+            {
+                buildingCompleted = true;
+
+                Console.WriteLine("Updating builds status: \n");
+
+                foreach (Build build in activeBuilds)
+                {
+                    Build updatedBuild = await GetBuildDetails(build.id);
+
+                    if (updatedBuild.status == "completed")
+                    {
+                        TimeSpan buildTime = DateTime.Parse(updatedBuild.finishTime) - DateTime.Parse(updatedBuild.startTime);
+                        string logsLink = await GetBuildLogsLink(updatedBuild.id);
+                        string statusMessage = $"{updatedBuild.sourceBranch} build {updatedBuild.result} in {buildTime.TotalSeconds} seconds. Link to build logs: {logsLink}";
+
+                        Console.WriteLine(statusMessage);
+                    }
+                    else
+                    {
+                        buildingCompleted = false;
+
+                        Console.WriteLine($"{build.sourceBranch} build is in process.");
+                    }
+                }
+
+                if (!buildingCompleted)
+                {
+                    var nextUpdateTime = DateTime.Now.AddMinutes(2);
+
+                    Console.WriteLine($"\nNext update at: {nextUpdateTime.ToString("T")}\n");
+
+                    Thread.Sleep((int)new TimeSpan(0, 2, 0).TotalMilliseconds);
+                }
+            }
         }
     }
 }
