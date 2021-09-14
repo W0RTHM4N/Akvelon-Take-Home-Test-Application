@@ -101,7 +101,7 @@ namespace TakeHomeTestApp
                     {
                         TimeSpan buildTime = DateTime.Parse(updatedBuild.finishTime) - DateTime.Parse(updatedBuild.startTime);
                         string logsLink = await GetBuildLogsLink(updatedBuild.id);
-                        string statusMessage = $"{updatedBuild.sourceBranch} build {updatedBuild.result} in {buildTime.TotalSeconds} seconds. Link to build logs: {logsLink}";
+                        string statusMessage = $"{updatedBuild.sourceBranch} build {updatedBuild.result} in {(int) buildTime.TotalSeconds} seconds. Link to build logs: {logsLink}";
 
                         Console.WriteLine(statusMessage);
                     }
