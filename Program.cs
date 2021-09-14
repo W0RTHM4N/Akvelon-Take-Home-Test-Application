@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using TakeHomeTestApp.Models;
 
@@ -24,15 +25,60 @@ namespace TakeHomeTestApp
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             client.DefaultRequestHeaders.Add("X-API-Token", APIToken);
 
-            List<BranchData> branchesData = await GetBranches();
+            Console.WriteLine("Getting the branches.\n");
+
+            List<BranchData> branchesData = await GetBranchesData();
+            List<Build> activeBuilds = new List<Build>();
+
+            Console.WriteLine("Running the builds.\n");
 
             foreach (BranchData branchData in branchesData)
             {
                 Build build = await RunBuild(branchData.branch);
+
+                activeBuilds.Add(build);
+            }
+
+            bool buildingCompleted = false;
+
+            while (!buildingCompleted)
+            {
+                buildingCompleted = true;
+
+                Console.WriteLine("Updating builds status: \n");
+
+                foreach (Build build in activeBuilds)
+                {
+                    Build updatedBuild = await GetBuildDetails(build.id);
+
+                    if (updatedBuild.status == "completed")
+                    {
+                        TimeSpan buildTime = DateTime.Parse(updatedBuild.finishTime) - DateTime.Parse(updatedBuild.startTime);
+                        string logsLink = await GetBuildLogsLink(updatedBuild.id);
+                        string statusMessage = $"{updatedBuild.sourceBranch} build {updatedBuild.result} in {buildTime.TotalSeconds} seconds. Link to build logs: {logsLink}";
+
+                        Console.WriteLine(statusMessage);
+                    }
+                    else
+                    {
+                        buildingCompleted = false;
+
+                        Console.WriteLine($"{build.sourceBranch} build is in process.");
+                    }
+                }
+
+                if (!buildingCompleted)
+                {
+                    var nextUpdateTime = DateTime.Now.AddMinutes(2);
+
+                    Console.WriteLine($"\nNext update at: {nextUpdateTime.ToString("T")}\n");
+
+                    Thread.Sleep((int)new TimeSpan(0, 2, 0).TotalMilliseconds);
+                }
             }
         }
 
-        private static async Task<List<BranchData>> GetBranches()
+        private static async Task<List<BranchData>> GetBranchesData()
         {
             string response = await client.GetStringAsync($"v0.1/apps/{ownerName}/{appName}/branches");
 
@@ -49,9 +95,28 @@ namespace TakeHomeTestApp
             HttpResponseMessage response = await client.PostAsync($"v0.1/apps/{ownerName}/{appName}/branches/{branch.name}/builds", stringContent);
             string buildString = await response.Content.ReadAsStringAsync();
 
-            Build build =  JsonConvert.DeserializeObject<Build>(buildString);
+            Build build = JsonConvert.DeserializeObject<Build>(buildString);
 
             return build;
+        }
+
+        private static async Task<Build> GetBuildDetails(int buildId)
+        {
+            string response = await client.GetStringAsync($"v0.1/apps/{ownerName}/{appName}/builds/{buildId}");
+
+            Build updatedBuild = JsonConvert.DeserializeObject<Build>(response);
+
+            return updatedBuild;
+        }
+
+        private static async Task<string> GetBuildLogsLink(int buildId)
+        {
+            string response = await client.GetStringAsync($"v0.1/apps/{ownerName}/{appName}/builds/{buildId}/downloads/logs");
+
+            var logsModel = new { uri = "" };
+            var logs = JsonConvert.DeserializeAnonymousType(response, logsModel);
+
+            return logs.uri;
         }
     }
 }
